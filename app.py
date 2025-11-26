@@ -24,7 +24,7 @@ def load_data():
 try:
     df = load_data()
     st.subheader("Raw Data")
-    st.dataframe(df.head())
+    st.dataframe(df.tail())
 except FileNotFoundError:
     st.error("Error: 'AAPL.csv' file not found. Please upload it to your GitHub repository.")
     st.stop()
