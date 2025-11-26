@@ -53,7 +53,7 @@ scaler = MinMaxScaler(feature_range=(0, 1))
 df_close_scaled = scaler.fit_transform(np.array(df_close).reshape(-1, 1))
 
 # Split data (We use the whole dataset for training to predict the FUTURE)
-training_size = int(len(df_close_scaled) * 0.70)
+training_size = int(len(df_close_scaled) * 1)
 test_size = len(df_close_scaled) - training_size
 train_data, test_data = df_close_scaled[0:training_size, :], df_close_scaled[training_size:len(df_close_scaled), :1]
 
