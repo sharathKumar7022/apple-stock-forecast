@@ -6,15 +6,12 @@ from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, LSTM
 import plotly.graph_objs as go
-# Import the specific Callback class correctly from tensorflow.keras
-from tensorflow.keras.callbacks import Callback 
 
 # Set page config
 st.set_page_config(layout="wide", page_title="Apple Stock Prediction")
 
 st.title("🍎 Apple Stock Price Forecast (Next 30 Days)")
 st.write("This app uses a Deep Learning (LSTM) model to forecast stock prices.")
-# 
 
 # --- 1. Load Data ---
 @st.cache_data
@@ -37,10 +34,8 @@ except FileNotFoundError:
 def prepare_data(data, time_step=100):
     X, y = [], []
     for i in range(len(data) - time_step - 1):
-        # Create sequences of 100 previous days (X)
         a = data[i:(i + time_step), 0]
         X.append(a)
-        # The 101st day is the target (y)
         y.append(data[i + time_step, 0])
     return np.array(X), np.array(y)
 
@@ -53,7 +48,7 @@ scaler = MinMaxScaler(feature_range=(0, 1))
 df_close_scaled = scaler.fit_transform(np.array(df_close).reshape(-1, 1))
 
 # Split data (We use the whole dataset for training to predict the FUTURE)
-training_size = int(len(df_close_scaled) * 0.99)
+training_size = int(len(df_close_scaled) * 0.70)
 test_size = len(df_close_scaled) - training_size
 train_data, test_data = df_close_scaled[0:training_size, :], df_close_scaled[training_size:len(df_close_scaled), :1]
 
@@ -71,7 +66,7 @@ X_test = X_test.reshape(X_test.shape[0], X_test.shape[1], 1)
 # --- 3. Build & Train Model ---
 # We use st.cache_resource to avoid retraining every time the app reloads
 @st.cache_resource
-def train_model(X_train, y_train):
+def StreamlitCallback(X_train, y_train):
     model = Sequential()
     model.add(LSTM(50, return_sequences=True, input_shape=(100, 1)))
     model.add(LSTM(50, return_sequences=True))
@@ -84,8 +79,8 @@ def train_model(X_train, y_train):
     status_text = st.empty()
     
     # Custom callback to update streamlit progress
-    # NOTE: The Callback class is imported globally above.
-    class StreamlitCallback(Callback):
+    import tensorflow as keras
+    class StreamlitCallback(keras.callbacks.Callback):
         def on_epoch_end(self, epoch, logs=None):
             progress = (epoch + 1) / 10
             progress_bar.progress(min(progress, 1.0))
@@ -97,12 +92,8 @@ def train_model(X_train, y_train):
     return model
 
 if st.button("Train Model & Predict"):
-    # Clear the previous error message if it exists
-    if 'error' in st.session_state:
-        del st.session_state.error
-        
     with st.spinner("Training the Deep Learning Model... This might take a minute."):
-        model = train_model(X_train, y_train)
+        model = StreamlitCallback(X_train, y_train)
 
     # --- 4. Prediction Logic ---
     # Predictions for validation (Test Set)
@@ -110,8 +101,7 @@ if st.button("Train Model & Predict"):
     
     # Inverse transform to get actual values
     test_predict = scaler.inverse_transform(test_predict)
-    # y_test_actual is not strictly needed for the plot but good for metrics
-    # y_test_actual = scaler.inverse_transform(y_test.reshape(-1, 1))
+    y_test_actual = scaler.inverse_transform(y_test.reshape(-1, 1))
 
     # --- 5. Forecast Next 30 Days ---
     # Get the last 100 days of data to start the prediction
@@ -126,12 +116,12 @@ if st.button("Train Model & Predict"):
 
     while(i < days_to_predict):
         if(len(temp_input) > 100):
-            # Take the last 100 values
-            x_input = np.array(temp_input[len(temp_input)-100:])
+            x_input = np.array(temp_input[1:])
             x_input = x_input.reshape(1, -1)
             x_input = x_input.reshape((1, n_steps, 1))
             yhat = model.predict(x_input, verbose=0)
             temp_input.extend(yhat[0].tolist())
+            temp_input = temp_input[1:]
             lst_output.extend(yhat.tolist())
             i = i + 1
         else:
